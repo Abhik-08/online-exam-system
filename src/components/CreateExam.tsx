@@ -29,6 +29,7 @@ export function CreateExam({ teacherId, onBack }: CreateExamProps) {
   // ================= AI STATE =================
   const [subject, setSubject] = useState("");
   const [chapter, setChapter] = useState("");
+  const [aiQuestionCount, setAiQuestionCount] = useState(5); // ✅ ADDED
   const [loadingAI, setLoadingAI] = useState(false);
 
   // ================= CONVEX =================
@@ -60,7 +61,7 @@ export function CreateExam({ teacherId, onBack }: CreateExamProps) {
     setQuestions(updated);
   };
 
-  // ================= AI GENERATION (FRONTEND) =================
+  // ================= AI GENERATION =================
   const handleGenerateAI = async () => {
     if (!subject || !chapter) {
       toast.error("Please enter both Subject and Topic");
@@ -69,8 +70,12 @@ export function CreateExam({ teacherId, onBack }: CreateExamProps) {
 
     try {
       setLoadingAI(true);
-      // Calling the SDK utility directly from the frontend
-      const aiQuestions = await generateQuestionsWithGemini(subject, chapter, 5);
+
+      const aiQuestions = await generateQuestionsWithGemini(
+        subject,
+        chapter,
+        aiQuestionCount // ✅ FIXED
+      );
 
       if (!aiQuestions || aiQuestions.length === 0) {
         toast.error("AI returned no results. Try adjusting the topic.");
@@ -93,12 +98,10 @@ export function CreateExam({ teacherId, onBack }: CreateExamProps) {
       toast.info("Extracting content from PDF...");
       const pdfText = await extractPdfText(file);
 
-      // Using the SDK to process the extracted PDF text
       const aiQuestions = await generateQuestionsWithGemini(
         "PDF Document",
-        "", 
-        5,
-        pdfText
+        "",
+        aiQuestionCount // ✅ FIXED
       );
 
       setQuestions(aiQuestions);
@@ -120,7 +123,6 @@ export function CreateExam({ teacherId, onBack }: CreateExamProps) {
       return;
     }
 
-    // Validation: Ensure no empty questions or options
     const isReady = questions.every(
       (q) => q.question.trim() !== "" && q.options.every((opt) => opt.trim() !== "")
     );
@@ -141,7 +143,7 @@ export function CreateExam({ teacherId, onBack }: CreateExamProps) {
 
       toast.success("Exam published successfully!");
       onBack();
-    } catch (err) {
+    } catch {
       toast.error("Error saving exam to the database.");
     }
   };
@@ -150,13 +152,15 @@ export function CreateExam({ teacherId, onBack }: CreateExamProps) {
     <div className="max-w-5xl mx-auto p-6 bg-gray-50 min-h-screen">
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
-          <button 
-            onClick={onBack} 
+          <button
+            onClick={onBack}
             className="p-2 hover:bg-white rounded-full transition-colors border border-transparent hover:border-gray-200"
           >
             <span className="text-xl">←</span>
           </button>
-          <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">Create New Exam</h2>
+          <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">
+            Create New Exam
+          </h2>
         </div>
       </div>
 
@@ -169,7 +173,9 @@ export function CreateExam({ teacherId, onBack }: CreateExamProps) {
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-gray-600 mb-2">Exam Title</label>
+              <label className="block text-sm font-semibold text-gray-600 mb-2">
+                Exam Title
+              </label>
               <input
                 type="text"
                 value={title}
@@ -180,7 +186,9 @@ export function CreateExam({ teacherId, onBack }: CreateExamProps) {
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-600 mb-2">Duration (Mins)</label>
+              <label className="block text-sm font-semibold text-gray-600 mb-2">
+                Duration (Mins)
+              </label>
               <input
                 type="number"
                 value={duration}
@@ -191,7 +199,9 @@ export function CreateExam({ teacherId, onBack }: CreateExamProps) {
             </div>
           </div>
           <div className="mt-6">
-            <label className="block text-sm font-semibold text-gray-600 mb-2">Description</label>
+            <label className="block text-sm font-semibold text-gray-600 mb-2">
+              Description
+            </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -207,9 +217,11 @@ export function CreateExam({ teacherId, onBack }: CreateExamProps) {
         <div className="bg-indigo-900 rounded-2xl shadow-lg p-8 text-white relative overflow-hidden">
           <div className="relative z-10">
             <h3 className="text-xl font-bold mb-2">AI Quick-Build</h3>
-            <p className="text-indigo-200 text-sm mb-6">Let Gemini generate questions for you in seconds.</p>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <p className="text-indigo-200 text-sm mb-6">
+              Let Gemini generate questions for you in seconds.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <input
                 placeholder="Subject (e.g. DBMS)"
                 value={subject}
@@ -222,6 +234,14 @@ export function CreateExam({ teacherId, onBack }: CreateExamProps) {
                 onChange={(e) => setChapter(e.target.value)}
                 className="px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:bg-white/20 outline-none"
               />
+              <input
+                type="number"
+                min={1}
+                value={aiQuestionCount}
+                onChange={(e) => setAiQuestionCount(Number(e.target.value))}
+                placeholder="No. of Questions"
+                className="px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:bg-white/20 outline-none"
+              />
             </div>
 
             <div className="flex flex-col md:flex-row gap-4 items-center">
@@ -231,16 +251,22 @@ export function CreateExam({ teacherId, onBack }: CreateExamProps) {
                 disabled={loadingAI}
                 className="w-full md:w-auto px-8 py-3 bg-white text-indigo-900 font-bold rounded-xl hover:bg-indigo-50 transition-colors disabled:opacity-50"
               >
-                {loadingAI ? "AI is Generating..." : "Generate 5 MCQs"}
+                {loadingAI
+                  ? "AI is Generating..."
+                  : `Generate ${aiQuestionCount} MCQs`}
               </button>
-              
+
               <div className="flex items-center gap-3 w-full md:w-auto border-l border-white/20 pl-4">
-                <p className="text-xs font-bold text-indigo-300 uppercase tracking-widest">Or PDF</p>
+                <p className="text-xs font-bold text-indigo-300 uppercase tracking-widest">
+                  Or PDF
+                </p>
                 <input
                   type="file"
                   accept="application/pdf"
                   className="text-xs file:bg-indigo-700 file:text-white file:border-0 file:px-4 file:py-2 file:rounded-lg file:mr-4 file:font-bold hover:file:bg-indigo-600 cursor-pointer"
-                  onChange={(e) => e.target.files && handlePdfUpload(e.target.files[0])}
+                  onChange={(e) =>
+                    e.target.files && handlePdfUpload(e.target.files[0])
+                  }
                 />
               </div>
             </div>
@@ -250,7 +276,9 @@ export function CreateExam({ teacherId, onBack }: CreateExamProps) {
         {/* Dynamic Question List */}
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-xl font-bold text-gray-800">Questions ({questions.length})</h3>
+            <h3 className="text-xl font-bold text-gray-800">
+              Questions ({questions.length})
+            </h3>
             <button
               type="button"
               onClick={addQuestion}
@@ -261,9 +289,14 @@ export function CreateExam({ teacherId, onBack }: CreateExamProps) {
           </div>
 
           {questions.map((q, i) => (
-            <div key={i} className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm group hover:border-blue-200 transition-all">
+            <div
+              key={i}
+              className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm group hover:border-blue-200 transition-all"
+            >
               <div className="flex justify-between items-start mb-6">
-                <span className="px-3 py-1 bg-gray-100 text-gray-500 rounded-lg text-xs font-black uppercase tracking-tighter">Question {i + 1}</span>
+                <span className="px-3 py-1 bg-gray-100 text-gray-500 rounded-lg text-xs font-black uppercase tracking-tighter">
+                  Question {i + 1}
+                </span>
                 <button
                   type="button"
                   onClick={() => removeQuestion(i)}
@@ -272,35 +305,41 @@ export function CreateExam({ teacherId, onBack }: CreateExamProps) {
                   Remove
                 </button>
               </div>
-              
+
               <input
                 type="text"
                 value={q.question}
-                onChange={(e) => updateQuestion(i, "question", e.target.value)}
+                onChange={(e) =>
+                  updateQuestion(i, "question", e.target.value)
+                }
                 className="w-full text-xl font-bold text-gray-800 border-b border-gray-100 focus:border-blue-500 py-2 outline-none mb-6 bg-transparent"
                 placeholder="Enter your question here..."
               />
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {q.options.map((opt, oi) => (
-                  <div 
-                    key={oi} 
+                  <div
+                    key={oi}
                     className={`flex items-center gap-3 p-4 rounded-xl border transition-all ${
-                      q.correctAnswer === oi 
-                        ? 'bg-green-50 border-green-200' 
-                        : 'bg-gray-50 border-gray-100'
+                      q.correctAnswer === oi
+                        ? "bg-green-50 border-green-200"
+                        : "bg-gray-50 border-gray-100"
                     }`}
                   >
                     <input
                       type="radio"
                       name={`correct-${i}`}
                       checked={q.correctAnswer === oi}
-                      onChange={() => updateQuestion(i, "correctAnswer", oi)}
+                      onChange={() =>
+                        updateQuestion(i, "correctAnswer", oi)
+                      }
                       className="w-5 h-5 text-green-600 focus:ring-green-500"
                     />
                     <input
                       value={opt}
-                      onChange={(e) => updateOption(i, oi, e.target.value)}
+                      onChange={(e) =>
+                        updateOption(i, oi, e.target.value)
+                      }
                       className="w-full bg-transparent font-medium text-gray-700 outline-none"
                       placeholder={`Option ${String.fromCharCode(65 + oi)}`}
                     />
@@ -313,15 +352,15 @@ export function CreateExam({ teacherId, onBack }: CreateExamProps) {
 
         {/* Final Actions */}
         <div className="flex items-center justify-end gap-6 pt-10 border-t border-gray-200">
-          <button 
-            type="button" 
-            onClick={onBack} 
+          <button
+            type="button"
+            onClick={onBack}
             className="text-gray-500 font-bold hover:text-gray-800 transition-colors"
           >
             Discard Changes
           </button>
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             className="px-10 py-4 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-200 hover:bg-blue-700 hover:-translate-y-1 active:translate-y-0 transition-all"
           >
             Create & Launch Exam
